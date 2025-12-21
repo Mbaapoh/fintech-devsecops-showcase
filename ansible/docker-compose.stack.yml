@@ -40,8 +40,9 @@ services:
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      # Mount docker socket to allow Docker-in-Docker for building
+      # Mount docker socket and binary to allow Docker-in-Docker
       - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
     user: root # For demo purposes to access docker sock easily
     networks:
       - fintech-net
