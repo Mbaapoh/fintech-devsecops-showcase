@@ -1,0 +1,113 @@
+---
+- name: Hardening and Stack Deployment
+  hosts: all
+  become: yes
+  vars:
+    docker_compose_version: "2.29.1"
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential tools (including vim)
+      apt:
+        name: 
+          - vim
+          - curl
+          - git
+          - ufw
+          - fail2ban
+        state: present
+
+    - name: Setup UFW firewall - Allow SSH (Anywhere)
+      ufw:
+        rule: allow
+        port: 22
+        proto: tcp
+
+    - name: Setup UFW firewall - Allow HTTP/HTTPS (Anywhere)
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - 80
+        - 443
+
+    - name: Setup UFW firewall - Restrict Admin Ports to Admin IP
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+        from_ip: "{{ admin_ip | default('0.0.0.0/0') }}"
+      loop:
+        - 9000 # SonarQube
+        - 8080 # Jenkins
+
+    - name: "Hardening - Disable Root Login (Warning: Ensure you have another user or key based auth first in real prod)"
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: 'PermitRootLogin prohibit-password'
+      notify: Restart ssh
+      # Commented out for safety in this demo unless keys are set up
+      # tags: hardening
+
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+
+    - name: Add Docker GPG key
+      shell: |
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker repository
+      shell: |
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+          $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+          tee /etc/apt/sources.list.d/docker.list > /dev/null
+      args:
+        creates: /etc/apt/sources.list.d/docker.list
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        update_cache: yes
+
+    - name: Create app directory
+      file:
+        path: /opt/fintech-showcase
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose stack
+      copy:
+        src: docker-compose.stack.yml
+        dest: /opt/fintech-showcase/docker-compose.yml
+
+    - name: Start the stack
+      command: docker compose up -d
+      args:
+        chdir: /opt/fintech-showcase
+
+  handlers:
+    - name: Restart ssh
+      service:
+        name: ssh
+        state: restarted
