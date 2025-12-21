@@ -43,28 +43,28 @@ pipeline {
                        dir('services/payment-gateway') {
                            // Assuming mvn is installed or running in container
                            // Using docker to run build to keep host clean
-                           sh 'docker run --rm -v ${PWD}:/usr/src/app -w /usr/src/app maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report'
+                           sh 'docker run --rm --volumes-from jenkins -w ${PWD} maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report'
                        }
                    }
                }
                stage('Go (Ledger w/ Coverage)') {
                    steps {
                        dir('services/ledger-api') {
-                           sh 'docker run --rm -v ${PWD}:/usr/src/app -w /usr/src/app golang:1.21 go test ./... -coverprofile=coverage.out'
+                           sh 'docker run --rm --volumes-from jenkins -w ${PWD} golang:1.21 go test ./... -coverprofile=coverage.out'
                        }
                    }
                }
                stage('Node (Identity w/ Jest)') {
                    steps {
                        dir('services/identity-service') {
-                           sh 'docker run --rm -v ${PWD}:/usr/src/app -w /usr/src/app node:18 /bin/bash -c "npm install && npm test"'
+                           sh 'docker run --rm --volumes-from jenkins -w ${PWD} node:18 /bin/bash -c "npm install && npm test"'
                        }
                    }
                }
                stage('React (Customer w/ LCOV)') {
                    steps {
                        dir('services/customer-web') {
-                           sh 'docker run --rm -v ${PWD}:/usr/src/app -e CI=true -w /usr/src/app node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"'
+                           sh 'docker run --rm --volumes-from jenkins -e CI=true -w ${PWD} node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"'
                        }
                    }
                }
