@@ -76,8 +76,14 @@ pipeline {
                 script {
                     def arch = sh(script: "uname -m", returnStdout: true).trim()
                     def platform = (arch == 'x86_64') ? 'linux/amd64' : 'linux/arm64'
-                    echo "Detected architecture: ${arch}, using platform: ${platform}"
-                    sh "docker run --rm --platform ${platform} --volumes-from jenkins -e SONAR_HOST_URL=\${SONAR_HOST_URL} -e SONAR_TOKEN=\${SONAR_TOKEN} -w \${PWD} sonarsource/sonar-scanner-cli"
+                    echo "Architecture: ${arch}, Platform: ${platform}. Forcing pull to avoid arch mismatch."
+                    
+                    // Use a versioned tag instead of 'latest' for better stability
+                    def scannerImage = 'sonarsource/sonar-scanner-cli:11'
+                    
+                    // Force pull with platform to ensure we have the right bits
+                    sh "docker pull --platform ${platform} ${scannerImage}"
+                    sh "docker run --rm --platform ${platform} --volumes-from jenkins -e SONAR_HOST_URL=\${SONAR_HOST_URL} -e SONAR_TOKEN=\${SONAR_TOKEN} -w \${PWD} ${scannerImage}"
                 }
             }
         }
