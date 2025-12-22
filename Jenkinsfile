@@ -74,11 +74,7 @@ pipeline {
         stage('Security: SAST (SonarQube MQR)') {
             steps {
                 script {
-                    def scannerHome = tool 'SonarScanner' 
-                    withSonarQubeEnv('My SonarQube Server') {
-                        // Scan logic uses sonar-project.properties
-                        sh "${scannerHome}/bin/sonar-scanner"
-                    }
+                    sh 'docker run --rm --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} sonarsource/sonar-scanner-cli'
                 }
             }
         }
