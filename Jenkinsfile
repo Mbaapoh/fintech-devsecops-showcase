@@ -74,8 +74,8 @@ pipeline {
         stage('Security: SAST (SonarQube MQR)') {
             steps {
                 script {
-                    // Using node:18 (Debian-based) instead of Alpine to ensure glibc compatibility for the scanner's JRE on ARM64
-                    sh 'docker run --rm --network fintech-net --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:18 npx sonarqube-scanner'
+                    // Using node:22 (Current LTS) to support modern JS features (like toReversed) used by the scanner's bridge
+                    sh 'docker run --rm --network fintech-net --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:22 npx sonarqube-scanner'
                 }
             }
         }
