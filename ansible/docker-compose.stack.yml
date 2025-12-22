@@ -44,6 +44,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker
     user: root # For demo purposes to access docker sock easily
+    environment:
+      - JAVA_OPTS=-Djenkins.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true
     networks:
       - fintech-net
 

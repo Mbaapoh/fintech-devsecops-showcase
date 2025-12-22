@@ -46,12 +46,12 @@
         - 9000 # SonarQube
         - 8080 # Jenkins
 
-    - name: "Hardening - Disable Root Login (Warning: Ensure you have another user or key based auth first in real prod)"
-      lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^PermitRootLogin'
-        line: 'PermitRootLogin prohibit-password'
-      notify: Restart ssh
+#    - name: "Hardening - Disable Root Login (Warning: Ensure you have another user or key based auth first in real prod)"
+#      lineinfile:
+#        path: /etc/ssh/sshd_config
+#        regexp: '^PermitRootLogin'
+#        line: 'PermitRootLogin prohibit-password'
+#      notify: Restart ssh
       # Commented out for safety in this demo unless keys are set up
       # tags: hardening
 

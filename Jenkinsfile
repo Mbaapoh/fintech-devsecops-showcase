@@ -38,15 +38,15 @@ pipeline {
 
         stage('Polyglot Build & Test') {
             parallel {
-               stage('Java (Payment w/ Jacoco)') {
-                   steps {
-                       dir('services/payment-gateway') {
-                           // Assuming mvn is installed or running in container
-                           // Using docker to run build to keep host clean
-                           sh 'docker run --rm --volumes-from jenkins -w ${PWD} maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report'
-                       }
-                   }
-               }
+                stage('Java (Payment w/ Jacoco)') {
+                    steps {
+                        dir('services/payment-gateway') {
+                            // Assuming mvn is installed or running in container
+                            // Using docker to run build to keep host clean
+                            sh 'docker run --rm --volumes-from jenkins -w ${PWD} maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report'
+                        }
+                    }
+                }
                stage('Go (Ledger w/ Coverage)') {
                    steps {
                        dir('services/ledger-api') {

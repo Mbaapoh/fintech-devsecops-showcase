@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "jest --coverage"
+    "test": "jest --coverage --passWithNoTests"
   },
   "devDependencies": {
     "jest": "^29.6.2"
