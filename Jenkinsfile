@@ -74,8 +74,8 @@ pipeline {
         stage('Security: SAST (SonarQube MQR)') {
             steps {
                 script {
-                    // Using npx sonarqube-scanner and attaching to the fintech-net network so it can find the 'sonarqube' container
-                    sh 'docker run --rm --network fintech-net --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:18-alpine npx sonarqube-scanner'
+                    // Using node:18 (Debian-based) instead of Alpine to ensure glibc compatibility for the scanner's JRE on ARM64
+                    sh 'docker run --rm --network fintech-net --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:18 npx sonarqube-scanner'
                 }
             }
         }
