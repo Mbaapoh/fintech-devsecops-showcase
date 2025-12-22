@@ -80,14 +80,9 @@ pipeline {
             }
         }
 
-        stage('Quality Gate (MQR Enforcement)') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    // Enforces Software Quality Security Rating < A = BLOCK
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        // Quality Gate enforcement is handled automatically by the previous stage 
+        // because sonar.qualitygate.wait=true is set in sonar-project.properties.
+        // The scanner will return a non-zero exit code if the Quality Gate fails.
 
         stage('Docker Build & Push') {
             parallel {
