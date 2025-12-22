@@ -74,7 +74,7 @@ pipeline {
         stage('Security: SAST (SonarQube MQR)') {
             steps {
                 script {
-                    sh 'docker run --rm --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} sonarsource/sonar-scanner-cli'
+                    sh 'docker run --rm --platform linux/arm64 --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} sonarsource/sonar-scanner-cli'
                 }
             }
         }
