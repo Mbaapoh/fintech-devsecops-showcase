@@ -74,16 +74,8 @@ pipeline {
         stage('Security: SAST (SonarQube MQR)') {
             steps {
                 script {
-                    def arch = sh(script: "uname -m", returnStdout: true).trim()
-                    def platform = (arch == 'x86_64') ? 'linux/amd64' : 'linux/arm64'
-                    echo "Architecture: ${arch}, Platform: ${platform}. Forcing pull to avoid arch mismatch."
-                    
-                    // Use a versioned tag instead of 'latest' for better stability
-                    def scannerImage = 'sonarsource/sonar-scanner-cli:11'
-                    
-                    // Force pull with platform to ensure we have the right bits
-                    sh "docker pull --platform ${platform} ${scannerImage}"
-                    sh "docker run --rm --platform ${platform} --volumes-from jenkins -e SONAR_HOST_URL=\${SONAR_HOST_URL} -e SONAR_TOKEN=\${SONAR_TOKEN} -w \${PWD} ${scannerImage}"
+                    // Using npx sonarqube-scanner is more reliable on ARM64 as it downloads the correct binary for the architecture
+                    sh 'docker run --rm --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:18-alpine npx sonarqube-scanner'
                 }
             }
         }
