@@ -41,30 +41,32 @@ pipeline {
                 stage('Java (Payment w/ Jacoco)') {
                     steps {
                         dir('services/payment-gateway') {
-                            // Assuming mvn is installed or running in container
-                            // Using docker to run build to keep host clean
-                            sh 'docker run --rm --volumes-from jenkins -w ${PWD} maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report'
+                            // Cache Maven dependencies in Jenkins home to speed up builds
+                            sh 'docker run --rm --volumes-from jenkins -v /var/jenkins_home/.m2:/root/.m2 -w ${PWD} maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report'
                         }
                     }
                 }
                stage('Go (Ledger w/ Coverage)') {
                    steps {
                        dir('services/ledger-api') {
-                           sh 'docker run --rm --volumes-from jenkins -w ${PWD} golang:1.21 go test ./... -coverprofile=coverage.out'
+                           // Cache Go modules
+                           sh 'docker run --rm --volumes-from jenkins -v /var/jenkins_home/go-cache:/go -w ${PWD} golang:1.21 go test ./... -coverprofile=coverage.out'
                        }
                    }
                }
                stage('Node (Identity w/ Jest)') {
                    steps {
                        dir('services/identity-service') {
-                           sh 'docker run --rm --volumes-from jenkins -w ${PWD} node:18 /bin/bash -c "npm install && npm test"'
+                           // Cache NPM dependencies
+                           sh 'docker run --rm --volumes-from jenkins -v /var/jenkins_home/.npm:/root/.npm -w ${PWD} node:18 /bin/bash -c "npm install && npm test"'
                        }
                    }
                }
                stage('React (Customer w/ LCOV)') {
                    steps {
                        dir('services/customer-web') {
-                           sh 'docker run --rm --volumes-from jenkins -e CI=true -w ${PWD} node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"'
+                            // Cache NPM dependencies
+                           sh 'docker run --rm --volumes-from jenkins -v /var/jenkins_home/.npm:/root/.npm -e CI=true -w ${PWD} node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"'
                        }
                    }
                }
@@ -74,8 +76,8 @@ pipeline {
         stage('Security: SAST (SonarQube MQR)') {
             steps {
                 script {
-                    // Using node:22 (Current LTS) to support modern JS features (like toReversed) used by the scanner's bridge
-                    sh 'docker run --rm --network fintech-net --volumes-from jenkins -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:22 npx sonarqube-scanner'
+                    // Cache Sonar scanner JRE and engine to avoid downloading 100MB+ on every run
+                    sh 'docker run --rm --network fintech-net --volumes-from jenkins -v /var/jenkins_home/.sonar:/root/.sonar -v /var/jenkins_home/.npm:/root/.npm -e SONAR_HOST_URL=${SONAR_HOST_URL} -e SONAR_TOKEN=${SONAR_TOKEN} -w ${PWD} node:22 npx sonarqube-scanner'
                 }
             }
         }
