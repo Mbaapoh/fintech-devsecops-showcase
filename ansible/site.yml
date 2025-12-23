@@ -103,6 +103,12 @@
       loop:
         - { src: 'docker-compose.stack.yml', dest: 'docker-compose.yml' }
         - { src: 'Jenkins.Dockerfile', dest: 'Jenkins.Dockerfile' }
+        - { src: 'Scanner.Dockerfile', dest: 'Scanner.Dockerfile' }
+
+    - name: Build custom Security Scanner (Multi-Arch native)
+      command: docker build -t fintech-scanner:latest -f Scanner.Dockerfile .
+      args:
+        chdir: /opt/fintech-showcase
 
     - name: Start the stack (with build enforcement)
       command: docker compose up -d --build

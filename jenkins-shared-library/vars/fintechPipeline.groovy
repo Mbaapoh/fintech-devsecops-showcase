@@ -68,16 +68,10 @@ def call(Map pipelineConfig = [:]) {
                         script {
                             echo "Publishing security metrics for ${env.SONAR_KEY}..."
                             
-                            // Calculate Hybrid Bridge Logic (DooD) & Architecture
+                            // Calculate Hybrid Bridge Logic (DooD)
                             def isContainer = sh(script: "[ -f /.dockerenv ] && echo true || echo false", returnStdout: true).trim()
                             def hostname = sh(script: "hostname", returnStdout: true).trim()
                             def dockerUser = sh(script: "id -u", returnStdout: true).trim() + ":" + sh(script: "id -g", returnStdout: true).trim()
-                            
-                            // Detect CPU Architecture
-                            def arch = sh(script: "uname -m", returnStdout: true).trim()
-                            // Professional Tip: On Mac ARM (M1/M2), forcing linux/amd64 is the most stable 
-                            // strategy as Rosetta 2 handles the emulation perfectly.
-                            def dockerPlatform = (arch == "aarch64" || arch == "arm64") ? "--platform linux/amd64" : ""
                             
                             def mountOpts = (isContainer == "true") ? "--volumes-from ${hostname}" : "-v ${WORKSPACE}/${env.SERVICE_DIR}:/usr/src"
                             def workDir = (isContainer == "true") ? "${WORKSPACE}/${env.SERVICE_DIR}" : "/usr/src"
@@ -87,13 +81,12 @@ def call(Map pipelineConfig = [:]) {
                                     sh "docker network create fintech-net || true"
                                     sh """
                                         docker run --rm --network fintech-net \
-                                            ${dockerPlatform} \
                                             --user ${dockerUser} \
                                             ${mountOpts} \
                                             -w ${workDir} \
                                             -e SONAR_HOST_URL=${SONAR_HOST_URL} \
                                             -e SONAR_TOKEN=${SONAR_TOKEN} \
-                                            sonarsource/sonar-scanner-cli:11.0 \
+                                            fintech-scanner:latest \
                                             -Dsonar.projectKey=${env.SONAR_KEY} \
                                             -Dsonar.projectName="${env.PROJECT_NAME}" \
                                             -Dsonar.projectBaseDir=${workDir} \
