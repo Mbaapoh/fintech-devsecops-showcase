@@ -1,8 +1,10 @@
 services:
   traefik:
-    image: traefik:v3.3.0
+    image: traefik:v3.6.5
     container_name: traefik
     restart: always
+    environment:
+      - DOCKER_API_VERSION=1.47
     command:
       - "--api.insecure=false"
       - "--api.dashboard=true"
@@ -14,7 +16,6 @@ services:
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.myresolver.acme.email=admin@okay.cm"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      # Global HTTP to HTTPS redirect
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
     ports:
@@ -27,14 +28,11 @@ services:
       - fintech-net
     labels:
       - "traefik.enable=true"
-      # Traefik Dashboard
-      - "traefik.http.routers.traefik.rule=Host(`traefik.demo.okay.cm`)"
-      - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.tls.certresolver=myresolver"
-      - "traefik.http.routers.traefik.middlewares=auth"
-      # Basic Auth for Dashboard: admin:admin (hashed: admin:$apr1$88C94x3N$Y1xY7qE2T6vJ5P5zO6zP6.)
-      # Use $$ for escaping in compose
+      - "traefik.http.routers.traefik_dash.rule=Host(`traefik.demo.okay.cm`)"
+      - "traefik.http.routers.traefik_dash.service=api@internal"
+      - "traefik.http.routers.traefik_dash.entrypoints=websecure"
+      - "traefik.http.routers.traefik_dash.tls.certresolver=myresolver"
+      - "traefik.http.routers.traefik_dash.middlewares=auth"
       - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$88C94x3N$$Y1xY7qE2T6vJ5P5zO6zP6."
 
   sonarqube:
