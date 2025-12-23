@@ -60,6 +60,7 @@ volumes:
   sonar_logs:
   postgresql:
   jenkins_home:
+  odc-data: # Centralized vulnerability database cache
 
 networks:
   fintech-net:

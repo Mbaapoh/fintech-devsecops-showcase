@@ -19,7 +19,8 @@ scan:
 		--scan /src \
 		--format "ALL" \
 		--out /report \
-		--disableKnownExploited
+		--disableKnownExploited \
+		--nvdApiKey "$(NVD_API_KEY)"
 
 sast:
 	echo "Running SAST for identity-service..."

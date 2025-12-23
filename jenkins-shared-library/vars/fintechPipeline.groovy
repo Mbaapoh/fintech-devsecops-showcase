@@ -4,6 +4,8 @@ def call(Map pipelineConfig = [:]) {
 
         environment {
             SONAR_TOKEN = credentials('sonar-token')
+            // Optional: User should create a 'Secret Text' credential in Jenkins with ID 'nvd-api-key'
+            NVD_API_KEY = credentials('nvd-api-key') 
             SONAR_HOST_URL = 'http://65.21.108.94:9000'
             PROJECT_NAME = "${pipelineConfig.projectName ?: 'Generic-Service'}"
             SONAR_KEY = "${pipelineConfig.sonarKey ?: env.JOB_NAME}"
