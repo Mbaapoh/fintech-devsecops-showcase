@@ -15,7 +15,7 @@ DOCKER_USER = --user $(shell id -u):$(shell id -g)
 
 test:
 	docker run --rm $(MOUNT_OPTS) $(DOCKER_USER) -w $(PWD) \
-		-e GOCACHE=$(PWD)/.go-cache \
+		-e GOCACHE=$(CACHE_DIR)/.go-cache \
 		golang:1.21 go test ./... -coverprofile=coverage.out
 
 build:

@@ -15,7 +15,8 @@ DOCKER_USER = --user $(shell id -u):$(shell id -g)
 
 test:
 	docker run --rm $(MOUNT_OPTS) $(DOCKER_USER) -w $(PWD) \
-		-e CI=true node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"
+		-v $(CACHE_DIR)/.npm:/.npm \
+		-e CI=true node:18 /bin/bash -c "npm install --cache /.npm --prefer-offline && npm test -- --coverage --watchAll=false"
 
 build:
 	docker build -t fintech/customer-web:latest .
