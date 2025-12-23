@@ -7,6 +7,7 @@ def call(Map pipelineConfig = [:]) {
             SONAR_HOST_URL = 'http://65.21.108.94:9000'
             PROJECT_NAME = "${pipelineConfig.projectName ?: 'Generic-Service'}"
             SONAR_KEY = "${pipelineConfig.sonarKey ?: env.JOB_NAME}"
+            SERVICE_DIR = "${pipelineConfig.serviceDir ?: '.'}"
         }
 
         stages {
@@ -15,23 +16,22 @@ def call(Map pipelineConfig = [:]) {
                     stage('Secrets Detection') {
                         steps {
                             echo "Scanning ${env.PROJECT_NAME} for secrets..."
-                            // Using Gitleaks with --source to scan the workspace. 
-                            // We use '|| true' only if we want to report but not fail, 
-                            // but for PCI-DSS we should typically fail the build.
+                            // Using Gitleaks with --no-git to scan the directory content directly.
                             sh """
-                                docker run --rm -v ${WORKSPACE}:/path \
+                                docker run --rm -v ${WORKSPACE}/${env.SERVICE_DIR}:/path \
                                     zricethezav/gitleaks:latest detect \
                                     --source="/path" \
                                     --report-path="/path/gitleaks-report.json" \
-                                    --redact -v || true
+                                    --no-git --redact -v || true
                             """
                         }
                     }
                     stage('SCA Scan') {
                         steps {
-                            echo "Scanning ${env.PROJECT_NAME} dependencies..."
-                            // Every service MUST have a 'make scan' target
-                            sh 'make scan'
+                            dir(env.SERVICE_DIR) {
+                                echo "Scanning ${env.PROJECT_NAME} dependencies in ${env.SERVICE_DIR}..."
+                                sh 'make scan'
+                            }
                         }
                     }
                 }
@@ -39,25 +39,28 @@ def call(Map pipelineConfig = [:]) {
 
             stage('Build & Test') {
                 steps {
-                    echo "Executing standard build for ${env.PROJECT_NAME}..."
-                    // Every service MUST have a 'make test' target
-                    sh 'make test'
+                    dir(env.SERVICE_DIR) {
+                        echo "Executing build for ${env.PROJECT_NAME}..."
+                        sh 'make test'
+                    }
                 }
             }
 
             stage('SAST (SonarQube)') {
                 steps {
-                    echo "Publishing security metrics for ${env.SONAR_KEY}..."
-                    sh """
-                        docker run --rm --network fintech-net \
-                            -v ${WORKSPACE}:/usr/src \
-                            -e SONAR_HOST_URL=${SONAR_HOST_URL} \
-                            -e SONAR_TOKEN=${SONAR_TOKEN} \
-                            sonarsource/sonar-scanner-cli \
-                            -Dsonar.projectKey=${env.SONAR_KEY} \
-                            -Dsonar.projectName="${env.PROJECT_NAME}" \
-                            -Dsonar.qualitygate.wait=true
-                    """
+                    dir(env.SERVICE_DIR) {
+                        echo "Publishing security metrics for ${env.SONAR_KEY}..."
+                        sh """
+                            docker run --rm --network fintech-net \
+                                -v ${WORKSPACE}/${env.SERVICE_DIR}:/usr/src \
+                                -e SONAR_HOST_URL=${SONAR_HOST_URL} \
+                                -e SONAR_TOKEN=${SONAR_TOKEN} \
+                                sonarsource/sonar-scanner-cli \
+                                -Dsonar.projectKey=${env.SONAR_KEY} \
+                                -Dsonar.projectName="${env.PROJECT_NAME}" \
+                                -Dsonar.qualitygate.wait=true
+                        """
+                    }
                 }
             }
 
