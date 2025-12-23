@@ -2,11 +2,26 @@
 
 .PHONY: test scan build sast
 
-# In distributed CI, we rely on environment variables for cache paths
-CACHE_DIR ?= $(HOME)
+# Detect environment
+IS_CONTAINER = $(shell [ -f /.dockerenv ] && echo "true" || echo "false")
+CACHE_DIR ?= $(shell [ -f /.dockerenv ] && echo "/var/jenkins_home" || echo "$(HOME)")
+
+# Strategy for mounting workspace (Host vs DooD)
+ifeq ($(IS_CONTAINER),true)
+    # Inside Docker: Bridge volumes from the agent container
+    MOUNT_OPTS = --volumes-from $(shell hostname)
+else
+    # Bare Metal: Standard volume mount
+    MOUNT_OPTS = -v $(PWD):$(PWD)
+endif
+
+# Run as current user to avoid permission locks
+DOCKER_USER = --user $(shell id -u):$(shell id -g)
 
 test:
-	docker run --rm -v $(PWD):/app -v $(CACHE_DIR)/.m2:/root/.m2 -w /app maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report
+	docker run --rm $(MOUNT_OPTS) $(DOCKER_USER) -w $(PWD) \
+		maven:3.9.3-eclipse-temurin-17 \
+		mvn clean test jacoco:report -Dmaven.repo.local=$(CACHE_DIR)/.m2/repository
 
 build:
 	docker build -t fintech/payment-gateway:latest .
@@ -15,15 +30,13 @@ scan:
 	echo "Running SCA for payment-gateway..."
 	mkdir -p odc-reports
 	chmod 777 odc-reports
-	docker run --rm --user $(shell id -u):$(shell id -g) \
-		-v $(PWD):/src \
+	docker run --rm $(MOUNT_OPTS) $(DOCKER_USER) -w $(PWD) \
 		-v odc-data:/usr/share/dependency-check/data \
-		-v $(PWD)/odc-reports:/report \
 		owasp/dependency-check:latest \
 		--project "payment-gateway" \
-		--scan /src \
+		--scan . \
 		--format "ALL" \
-		--out /report \
+		--out odc-reports \
 		--disableKnownExploited \
 		--nvdApiKey "$(NVD_API_KEY)"
 

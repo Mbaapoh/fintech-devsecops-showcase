@@ -2,10 +2,20 @@
 
 .PHONY: test scan build sast
 
-CACHE_DIR ?= $(HOME)
+IS_CONTAINER = $(shell [ -f /.dockerenv ] && echo "true" || echo "false")
+CACHE_DIR ?= $(shell [ -f /.dockerenv ] && echo "/var/jenkins_home" || echo "$(HOME)")
+
+ifeq ($(IS_CONTAINER),true)
+    MOUNT_OPTS = --volumes-from $(shell hostname)
+else
+    MOUNT_OPTS = -v $(PWD):$(PWD)
+endif
+
+DOCKER_USER = --user $(shell id -u):$(shell id -g)
 
 test:
-	docker run --rm -v $(PWD):/app -v $(CACHE_DIR)/.npm:/root/.npm -e CI=true -w /app node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"
+	docker run --rm $(MOUNT_OPTS) $(DOCKER_USER) -w $(PWD) \
+		-e CI=true node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"
 
 build:
 	docker build -t fintech/identity-service:latest .
@@ -14,18 +24,15 @@ scan:
 	echo "Running SCA for identity-service..."
 	mkdir -p odc-reports
 	chmod 777 odc-reports
-	docker run --rm --user $(shell id -u):$(shell id -g) \
-		-v $(PWD):/src \
+	docker run --rm $(MOUNT_OPTS) $(DOCKER_USER) -w $(PWD) \
 		-v odc-data:/usr/share/dependency-check/data \
-		-v $(PWD)/odc-reports:/report \
 		owasp/dependency-check:latest \
 		--project "identity-service" \
-		--scan /src \
+		--scan . \
 		--format "ALL" \
-		--out /report \
+		--out odc-reports \
 		--disableKnownExploited \
 		--nvdApiKey "$(NVD_API_KEY)"
 
 sast:
 	echo "Running SAST for identity-service..."
-	# Local ESLint or similar
