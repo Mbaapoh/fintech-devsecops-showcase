@@ -2,5 +2,6 @@
 
 fintechPipeline(
     projectName: 'Ledger API',
-    sonarKey: 'fintech-ledger-api'
+    sonarKey: 'fintech-ledger-api',
+    serviceDir: 'services/ledger-api'
 )

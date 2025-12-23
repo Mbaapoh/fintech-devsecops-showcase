@@ -5,7 +5,7 @@
 CACHE_DIR ?= $(HOME)
 
 test:
-	docker run --rm -v $(PWD):/app -v $(CACHE_DIR)/.npm:/root/.npm -e CI=true -w /app node:18 /bin/bash -c "npm install && npm test"
+	docker run --rm -v $(PWD):/app -v $(CACHE_DIR)/.npm:/root/.npm -e CI=true -w /app node:18 /bin/bash -c "npm install && npm test -- --coverage --watchAll=false"
 
 build:
 	docker build -t fintech/identity-service:latest .

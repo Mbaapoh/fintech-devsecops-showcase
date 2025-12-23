@@ -74,9 +74,22 @@ def call(Map pipelineConfig = [:]) {
 
             stage('Compliance Evidence') {
                 steps {
-                    echo "Generating audit evidence for ${env.PROJECT_NAME}..."
-                    // This uses a global compliance tool managed by DevOps
-                    // sh "/opt/devops/export_compliance.sh ${SONAR_HOST_URL} ${SONAR_KEY} ${SONAR_TOKEN}"
+                    script {
+                        echo "Generating ISO 27001 / PCI-DSS Audit Evidence for ${env.PROJECT_NAME}..."
+                        // Extract the centralized compliance script from the library's resources
+                        def complianceScript = libraryResource 'scripts/export_compliance.sh'
+                        writeFile file: 'export_compliance.sh', text: complianceScript
+                        sh "chmod +x export_compliance.sh"
+                        
+                        // Execute the script using centralized credentials and environment variables
+                        sh "./export_compliance.sh ${SONAR_HOST_URL} ${SONAR_KEY} ${SONAR_TOKEN}"
+                    }
+                }
+                post {
+                    always {
+                        // Archive the evidence as a permanent record for auditors
+                        archiveArtifacts artifacts: 'compliance_evidence.md', fingerprint: true
+                    }
                 }
             }
 

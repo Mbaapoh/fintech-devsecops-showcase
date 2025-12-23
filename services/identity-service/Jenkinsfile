@@ -2,5 +2,6 @@
 
 fintechPipeline(
     projectName: 'Identity Service',
-    sonarKey: 'fintech-identity-service'
+    sonarKey: 'fintech-identity-service',
+    serviceDir: 'services/identity-service'
 )

@@ -2,5 +2,6 @@
 
 fintechPipeline(
     projectName: 'Customer Web',
-    sonarKey: 'fintech-customer-web'
+    sonarKey: 'fintech-customer-web',
+    serviceDir: 'services/customer-web'
 )
