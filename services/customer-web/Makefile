@@ -19,7 +19,7 @@ scan:
 		--scan /src \
 		--format "ALL" \
 		--out /report \
-		--disableKev true
+		--disableKnownExploited
 
 sast:
 	echo "Running SAST for customer-web..."
