@@ -2,8 +2,10 @@
 
 .PHONY: test scan build sast
 
+CACHE_DIR ?= $(HOME)
+
 test:
-	docker run --rm --volumes-from jenkins -v /var/jenkins_home/go-cache:/go -w $(PWD) golang:1.21 go test ./... -coverprofile=coverage.out
+	docker run --rm -v $(PWD):/app -v $(CACHE_DIR)/go-cache:/go -w /app golang:1.21 go test ./... -coverprofile=coverage.out
 
 build:
 	docker build -t fintech/ledger-api:latest .

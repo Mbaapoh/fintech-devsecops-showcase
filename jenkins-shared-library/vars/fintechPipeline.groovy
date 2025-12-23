@@ -1,15 +1,18 @@
 def call(Map pipelineConfig = [:]) {
     pipeline {
-        agent any
+        agent {
+            label "${pipelineConfig.agentLabel ?: 'any'}"
+        }
 
         environment {
             SONAR_TOKEN = credentials('sonar-token')
-            // Optional: User should create a 'Secret Text' credential in Jenkins with ID 'nvd-api-key'
             NVD_API_KEY = credentials('nvd-api-key') 
             SONAR_HOST_URL = 'http://65.21.108.94:9000'
             PROJECT_NAME = "${pipelineConfig.projectName ?: 'Generic-Service'}"
             SONAR_KEY = "${pipelineConfig.sonarKey ?: env.JOB_NAME}"
             SERVICE_DIR = "${pipelineConfig.serviceDir ?: '.'}"
+            // Pass Jenkins Home as the root for decentralized caching
+            CACHE_DIR = "/var/jenkins_home"
         }
 
         stages {
@@ -18,7 +21,6 @@ def call(Map pipelineConfig = [:]) {
                     stage('Secrets Detection') {
                         steps {
                             echo "Scanning ${env.PROJECT_NAME} for secrets..."
-                            // Using Gitleaks with --no-git to scan the directory content directly.
                             sh """
                                 docker run --rm -v ${WORKSPACE}/${env.SERVICE_DIR}:/path \
                                     zricethezav/gitleaks:latest detect \
@@ -32,7 +34,9 @@ def call(Map pipelineConfig = [:]) {
                         steps {
                             dir(env.SERVICE_DIR) {
                                 echo "Scanning ${env.PROJECT_NAME} dependencies in ${env.SERVICE_DIR}..."
-                                sh 'make scan'
+                                withEnv(["NVD_API_KEY=${env.NVD_API_KEY}"]) {
+                                    sh 'make scan'
+                                }
                             }
                         }
                     }
@@ -42,8 +46,10 @@ def call(Map pipelineConfig = [:]) {
             stage('Build & Test') {
                 steps {
                     dir(env.SERVICE_DIR) {
-                        echo "Executing build for ${env.PROJECT_NAME}..."
-                        sh 'make test'
+                        echo "Executing build for ${env.PROJECT_NAME} on agent ${env.NODE_NAME}..."
+                        withEnv(["CACHE_DIR=${env.CACHE_DIR}"]) {
+                            sh 'make test'
+                        }
                     }
                 }
             }

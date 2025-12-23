@@ -2,8 +2,11 @@
 
 .PHONY: test scan build sast
 
+# In distributed CI, we rely on environment variables for cache paths
+CACHE_DIR ?= $(HOME)
+
 test:
-	docker run --rm --volumes-from jenkins -v /var/jenkins_home/.m2:/root/.m2 -w $(PWD) maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report
+	docker run --rm -v $(PWD):/app -v $(CACHE_DIR)/.m2:/root/.m2 -w /app maven:3.9.3-eclipse-temurin-17 mvn clean test jacoco:report
 
 build:
 	docker build -t fintech/payment-gateway:latest .
