@@ -67,23 +67,34 @@ def call(Map pipelineConfig = [:]) {
                     dir(env.SERVICE_DIR) {
                         script {
                             echo "Publishing security metrics for ${env.SONAR_KEY}..."
+                            
+                            // Calculate Hybrid Bridge Logic (DooD)
+                            def isContainer = sh(script: "[ -f /.dockerenv ] && echo true || echo false", returnStdout: true).trim()
+                            def hostname = sh(script: "hostname", returnStdout: true).trim()
+                            def dockerUser = sh(script: "id -u", returnStdout: true).trim() + ":" + sh(script: "id -g", returnStdout: true).trim()
+                            
+                            def mountOpts = (isContainer == "true") ? "--volumes-from ${hostname}" : "-v ${WORKSPACE}/${env.SERVICE_DIR}:/usr/src"
+                            def workDir = (isContainer == "true") ? "${WORKSPACE}/${env.SERVICE_DIR}" : "/usr/src"
+
                             try {
                                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                                    // Ensure network exists on the agent
                                     sh "docker network create fintech-net || true"
                                     sh """
                                         docker run --rm --network fintech-net \
-                                            -v ${WORKSPACE}/${env.SERVICE_DIR}:/usr/src \
+                                            --user ${dockerUser} \
+                                            ${mountOpts} \
+                                            -w ${workDir} \
                                             -e SONAR_HOST_URL=${SONAR_HOST_URL} \
                                             -e SONAR_TOKEN=${SONAR_TOKEN} \
-                                            sonarsource/sonar-scanner-cli \
+                                            sonarsource/sonar-scanner-cli:latest \
                                             -Dsonar.projectKey=${env.SONAR_KEY} \
                                             -Dsonar.projectName="${env.PROJECT_NAME}" \
+                                            -Dsonar.projectBaseDir=${workDir} \
                                             -Dsonar.qualitygate.wait=true
                                     """
                                 }
                             } catch (Exception e) {
-                                error "CRITICAL: SonarQube analysis failed. Ensure 'sonar-token' credential is set. Details: ${e.message}"
+                                error "CRITICAL: SonarQube analysis failed. Details: ${e.message}"
                             }
                         }
                     }
