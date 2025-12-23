@@ -1,0 +1,25 @@
+---
+# Handlers for Nginx service management
+
+- name: Reload Nginx
+  systemd:
+    name: nginx
+    state: reloaded
+  listen: "Reload Nginx"
+
+- name: Restart Nginx
+  systemd:
+    name: nginx
+    state: restarted
+  listen: "Restart Nginx"
+
+- name: Test Nginx Configuration
+  command: nginx -t
+  register: nginx_test_result
+  changed_when: false
+  listen: "Test Nginx Configuration"
+
+- name: Display Nginx Test Result
+  debug:
+    var: nginx_test_result.stderr_lines
+  listen: "Test Nginx Configuration"

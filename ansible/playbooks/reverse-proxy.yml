@@ -1,0 +1,89 @@
+---
+# Nginx Reverse Proxy Deployment Playbook
+# Deploys Nginx with Let's Encrypt SSL for all services
+
+- name: Deploy Nginx Reverse Proxy for Fintech Services
+  hosts: all
+  become: yes
+  
+  vars:
+    # Override these variables as needed
+    base_domain: "okay.cm"
+    enable_ssl: true
+    ssl_email: "admin@okay.cm"
+    
+    # Optional: Disable specific services by commenting them out
+    services:
+      jenkins:
+        subdomain: "jenkins"
+        backend_port: 8080
+        backend_host: "localhost"
+        client_max_body_size: "50M"
+        proxy_read_timeout: "300s"
+        
+      sonarqube:
+        subdomain: "sonarqube"
+        backend_port: 9000
+        backend_host: "localhost"
+        client_max_body_size: "20M"
+        proxy_read_timeout: "180s"
+        
+      payment_gateway:
+        subdomain: "payment"
+        backend_port: 8081
+        backend_host: "localhost"
+        client_max_body_size: "10M"
+        proxy_read_timeout: "60s"
+        
+      ledger_api:
+        subdomain: "ledger"
+        backend_port: 8082
+        backend_host: "localhost"
+        client_max_body_size: "10M"
+        proxy_read_timeout: "60s"
+        
+      identity_service:
+        subdomain: "identity"
+        backend_port: 3001
+        backend_host: "localhost"
+        client_max_body_size: "5M"
+        proxy_read_timeout: "30s"
+        
+      customer_web:
+        subdomain: "customer"
+        backend_port: 3000
+        backend_host: "localhost"
+        client_max_body_size: "5M"
+        proxy_read_timeout: "30s"
+  
+  roles:
+    - ../roles/nginx-reverse-proxy
+  
+  post_tasks:
+    - name: Display configuration summary
+      debug:
+        msg: |
+          =================================================================
+          Nginx Reverse Proxy Deployment Complete!
+          =================================================================
+          
+          Your services are now accessible at:
+          {% for key, service in services.items() %}
+          
+          {{ loop.index }}. {{ service.subdomain }}.{{ base_domain }}
+             Backend: {{ service.backend_host }}:{{ service.backend_port }}
+             {% if enable_ssl %}HTTPS Enabled ✓{% else %}HTTP Only (Warning: No SSL){% endif %}
+          {% endfor %}
+          
+          {% if enable_ssl %}
+          SSL Certificates: Let's Encrypt (auto-renewal enabled)
+          Certificate Location: /etc/letsencrypt/live/
+          Renewal Schedule: Daily at 03:00 (cron job)
+          {% else %}
+          WARNING: SSL is disabled. Services are NOT encrypted.
+          {% endif %}
+          
+          Nginx Logs: /var/log/nginx/
+          Configuration: /etc/nginx/sites-available/
+          
+          =================================================================

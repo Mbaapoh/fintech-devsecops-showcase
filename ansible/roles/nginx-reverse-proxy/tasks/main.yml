@@ -1,0 +1,155 @@
+---
+# Main tasks for Nginx reverse proxy setup
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install Certbot for Let's Encrypt
+  apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  when: enable_ssl and use_letsencrypt and ansible_os_family == "Debian"
+
+- name: Ensure Nginx is stopped (for initial certbot setup)
+  systemd:
+    name: nginx
+    state: stopped
+  when: enable_ssl and use_letsencrypt
+
+- name: Create Nginx configuration directory
+  file:
+    path: /etc/nginx/sites-available
+    state: directory
+    mode: '0755'
+
+- name: Create Nginx sites-enabled directory
+  file:
+    path: /etc/nginx/sites-enabled
+    state: directory
+    mode: '0755'
+
+- name: Remove default Nginx site
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/default
+    - /etc/nginx/sites-available/default
+
+- name: Deploy Nginx main configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: '0644'
+  notify: Reload Nginx
+
+- name: Deploy service-specific Nginx configurations (HTTP only for initial setup)
+  template:
+    src: service-http.conf.j2
+    dest: "/etc/nginx/sites-available/{{ item.key }}.{{ base_domain }}"
+    mode: '0644'
+  loop: "{{ services | dict2items }}"
+  when: enable_ssl and use_letsencrypt
+
+- name: Enable service configurations (HTTP)
+  file:
+    src: "/etc/nginx/sites-available/{{ item.key }}.{{ base_domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ item.key }}.{{ base_domain }}"
+    state: link
+  loop: "{{ services | dict2items }}"
+  when: enable_ssl and use_letsencrypt
+  notify: Reload Nginx
+
+- name: Start Nginx for certbot verification
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  when: enable_ssl and use_letsencrypt
+
+- name: Obtain SSL certificates with Certbot
+  command: >
+    certbot certonly --nginx --non-interactive --agree-tos
+    --email {{ ssl_email }}
+    -d {{ item.value.subdomain }}.{{ base_domain }}
+  loop: "{{ services | dict2items }}"
+  when: enable_ssl and use_letsencrypt
+  register: certbot_result
+  failed_when: false
+  changed_when: "'Congratulations' in certbot_result.stdout or 'Successfully received certificate' in certbot_result.stdout"
+
+- name: Deploy service-specific Nginx configurations (HTTPS)
+  template:
+    src: service-https.conf.j2
+    dest: "/etc/nginx/sites-available/{{ item.key }}.{{ base_domain }}"
+    mode: '0644'
+  loop: "{{ services | dict2items }}"
+  when: enable_ssl
+  notify: Reload Nginx
+
+- name: Deploy service-specific Nginx configurations (HTTP only - no SSL)
+  template:
+    src: service-http-only.conf.j2
+    dest: "/etc/nginx/sites-available/{{ item.key }}.{{ base_domain }}"
+    mode: '0644'
+  loop: "{{ services | dict2items }}"
+  when: not enable_ssl
+  notify: Reload Nginx
+
+- name: Enable service configurations
+  file:
+    src: "/etc/nginx/sites-available/{{ item.key }}.{{ base_domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ item.key }}.{{ base_domain }}"
+    state: link
+  loop: "{{ services | dict2items }}"
+  notify: Reload Nginx
+
+- name: Test Nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Display Nginx test results
+  debug:
+    var: nginx_test.stderr_lines
+
+- name: Ensure Nginx is running
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Setup automatic SSL renewal
+  cron:
+    name: "Renew Let's Encrypt certificates"
+    minute: "0"
+    hour: "3"
+    job: "certbot renew --quiet && systemctl reload nginx"
+  when: enable_ssl and use_letsencrypt
+
+- name: Display access URLs
+  debug:
+    msg: |
+      Nginx reverse proxy configured successfully!
+      
+      Access your services at:
+      {% for key, service in services.items() %}
+      - {{ service.subdomain }}.{{ base_domain }} → {{ service.backend_host }}:{{ service.backend_port }}
+      {% endfor %}
+      
+      {% if enable_ssl %}
+      SSL certificates are enabled via Let's Encrypt.
+      {% else %}
+      WARNING: SSL is disabled. Services are accessible via HTTP only.
+      {% endif %}

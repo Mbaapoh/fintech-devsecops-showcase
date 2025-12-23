@@ -260,7 +260,22 @@ This will deploy:
 - ✅ Jenkins with pre-configured jobs
 - ✅ Custom security scanner image
 
-### 3. Access Services
+### 3. Access Services (via Reverse Proxy)
+
+If you deployed using the Nginx reverse proxy role, services are available at:
+
+| Service | URL | Backend Port |
+|---------|-----|--------------|
+| Jenkins | https://jenkins.okay.cm | 8080 |
+| SonarQube | https://sonarqube.okay.cm | 9000 |
+| Payment Gateway | https://payment.okay.cm | 8081 |
+| Ledger API | https://ledger.okay.cm | 8082 |
+| Identity Service | https://identity.okay.cm | 3001 |
+| Customer Web | https://customer.okay.cm | 3000 |
+
+*Note: Replace `okay.cm` with your actual domain in `ansible/playbooks/reverse-proxy.yml`.*
+
+### 4. Local Access (Direct)
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
@@ -626,10 +641,16 @@ See [WORKAROUNDS.md](./WORKAROUNDS.md) for detailed technical explanation.
 ```
 fintech-devsecops-showcase/
 ├── ansible/                          # Infrastructure as Code
-│   ├── site.yml                      # Main playbook
+│   ├── playbooks/                    # Ansible Playbooks
+│   │   ├── setup-stack.yml           # Main infrastructure deployment
+│   │   └── reverse-proxy.yml        # Nginx/SSL reverse proxy setup
+│   ├── roles/                        # Ansible Roles
+│   │   ├── nginx-reverse-proxy/      # Nginx configuration role
+│   │   └── ...                       # Other infrastructure roles
 │   ├── Jenkins.Dockerfile            # Custom Jenkins image
 │   ├── Scanner.Dockerfile            # Security scanner image
-│   └── sonarqube-init.sh            # SonarQube initialization
+│   ├── docker-compose.stack.yml      # Docker stack definition
+│   └── inventory.ini                 # Ansible inventory
 ├── jenkins-shared-library/           # Reusable pipeline logic
 │   ├── vars/
 │   │   └── fintechPipeline.groovy   # Shared pipeline
