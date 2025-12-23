@@ -7,12 +7,9 @@ USER root
 
 RUN apt-get update && \
     apt-get install -y curl unzip gnupg ca-certificates && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    mkdir -p /etc/apt/apt.sources.list.d && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/apt.sources.list.d/nodesource.list && \
-    apt-get update && \
-    apt-get install nodejs -y && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    node -v && \
     rm -rf /var/lib/apt/lists/*
 
 # Map Docker architecture names to SonarScanner download names
