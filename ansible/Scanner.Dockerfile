@@ -6,7 +6,7 @@ ARG TARGETARCH
 USER root
 
 RUN apt-get update && \
-    apt-get install -y curl unzip && \
+    apt-get install -y curl unzip xz-utils && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then NODE_ARCH="x64"; elif [ "$ARCH" = "aarch64" ]; then NODE_ARCH="arm64"; else NODE_ARCH="x64"; fi && \
     curl -fsSL https://nodejs.org/dist/v20.10.0/node-v20.10.0-linux-$NODE_ARCH.tar.xz | tar -xJ -C /usr/local --strip-components=1 && \
