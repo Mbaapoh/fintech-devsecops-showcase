@@ -1,0 +1,6 @@
+@Library('fintech-pipeline-library') _
+
+fintechPipeline(
+    projectName: 'Customer Web',
+    sonarKey: 'fintech-customer-web'
+)

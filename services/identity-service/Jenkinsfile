@@ -1,0 +1,6 @@
+@Library('fintech-pipeline-library') _
+
+fintechPipeline(
+    projectName: 'Identity Service',
+    sonarKey: 'fintech-identity-service'
+)
