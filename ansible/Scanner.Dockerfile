@@ -6,7 +6,9 @@ ARG TARGETARCH
 USER root
 
 RUN apt-get update && \
-    apt-get install -y curl unzip && \
+    apt-get install -y curl unzip gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
 # Map Docker architecture names to SonarScanner download names
