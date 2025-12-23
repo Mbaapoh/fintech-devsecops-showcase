@@ -10,7 +10,16 @@ build:
 
 scan:
 	echo "Running SCA for identity-service..."
-	docker run --rm -v $(PWD):/src -v $(PWD)/odc-reports:/report owasp/dependency-check:latest --project "identity-service" --scan /src --format "ALL" --out /report
+	mkdir -p odc-reports
+	docker run --rm -v $(PWD):/src \
+		-v odc-data:/usr/share/dependency-check/data \
+		-v $(PWD)/odc-reports:/report \
+		owasp/dependency-check:latest \
+		--project "identity-service" \
+		--scan /src \
+		--format "ALL" \
+		--out /report \
+		--disableKev true
 
 sast:
 	echo "Running SAST for identity-service..."

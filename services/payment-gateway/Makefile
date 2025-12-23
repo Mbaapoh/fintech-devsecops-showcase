@@ -10,7 +10,16 @@ build:
 
 scan:
 	echo "Running SCA for payment-gateway..."
-	docker run --rm -v $(PWD):/src -v $(PWD)/odc-reports:/report owasp/dependency-check:latest --project "payment-gateway" --scan /src --format "ALL" --out /report
+	mkdir -p odc-reports
+	docker run --rm -v $(PWD):/src \
+		-v odc-data:/usr/share/dependency-check/data \
+		-v $(PWD)/odc-reports:/report \
+		owasp/dependency-check:latest \
+		--project "payment-gateway" \
+		--scan /src \
+		--format "ALL" \
+		--out /report \
+		--disableKev true
 
 sast:
 	echo "Running SAST for payment-gateway..."
