@@ -78,6 +78,7 @@ def call(Map pipelineConfig = [:]) {
 
                             try {
                                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                                    echo "Connecting to SonarQube at ${SONAR_HOST_URL}..."
                                     sh "docker network create fintech-net || true"
                                     sh """
                                         docker run --rm --network fintech-net \
@@ -93,9 +94,9 @@ def call(Map pipelineConfig = [:]) {
                                             -Dsonar.qualitygate.wait=true
                                     """
                                 }
-                            }
- catch (Exception e) {
-                                error "CRITICAL: SonarQube analysis failed. Details: ${e.message}"
+                            } catch (Exception e) {
+                                echo "SAST Stage Failed for ${env.PROJECT_NAME}. Detailed Error: ${e.message}"
+                                error "CRITICAL: SonarQube analysis failed. Please verify SonarQube connectivity and Project Token."
                             }
                         }
                     }
@@ -108,20 +109,19 @@ def call(Map pipelineConfig = [:]) {
                         echo "Generating ISO 27001 / PCI-DSS Audit Evidence for ${env.PROJECT_NAME}..."
                         try {
                             withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                                def complianceScript = libraryResource 'scripts/export_compliance.sh'
-                                writeFile file: 'export_compliance.sh', text: complianceScript
-                                sh "chmod +x export_compliance.sh"
-                                sh "./export_compliance.sh ${SONAR_HOST_URL} ${SONAR_KEY} ${SONAR_TOKEN}"
+                                def scriptContent = libraryResource 'scripts/export_compliance.sh'
+                                writeFile file: 'export_compliance.sh', text: scriptContent
+                                sh 'chmod +x export_compliance.sh'
+                                sh "./export_compliance.sh ${SONAR_HOST_URL} ${env.SONAR_KEY} ${SONAR_TOKEN}"
                             }
                         } catch (Exception e) {
-                            echo "WARNING: Could not generate compliance report. (Requires 'sonar-token')."
+                            echo "Compliance Report Generation Failed. Details: ${e.message}"
                         }
                     }
                 }
                 post {
                     always {
-                        // Archive the evidence as a permanent record for auditors
-                        archiveArtifacts artifacts: 'compliance_evidence.md', fingerprint: true
+                        archiveArtifacts artifacts: 'compliance_evidence.md', fingerprint: true, allowEmptyArchive: true
                     }
                 }
             }
