@@ -6,7 +6,7 @@ base_domain: "demo.okay.cm"
 ssl_email: "admin@okay.cm"
 
 # Traefik configuration
-traefik_image: "traefik:v2.10"
+traefik_image: "traefik:v3.3.0"
 traefik_container_name: "traefik"
 traefik_network: "fintech-net"
 
