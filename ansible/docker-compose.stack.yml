@@ -33,7 +33,9 @@ services:
       - fintech-net
 
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: Jenkins.Dockerfile
     container_name: jenkins
     ports:
       - "8080:8080"

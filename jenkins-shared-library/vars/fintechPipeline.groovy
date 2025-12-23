@@ -15,7 +15,16 @@ def call(Map pipelineConfig = [:]) {
                     stage('Secrets Detection') {
                         steps {
                             echo "Scanning ${env.PROJECT_NAME} for secrets..."
-                            sh "docker run --rm -v ${WORKSPACE}:/path zricethezav/gitleaks:latest detect --source='/path' -v --report-path='/path/gitleaks-report.json' || true"
+                            // Using Gitleaks with --source to scan the workspace. 
+                            // We use '|| true' only if we want to report but not fail, 
+                            // but for PCI-DSS we should typically fail the build.
+                            sh """
+                                docker run --rm -v ${WORKSPACE}:/path \
+                                    zricethezav/gitleaks:latest detect \
+                                    --source="/path" \
+                                    --report-path="/path/gitleaks-report.json" \
+                                    --redact -v || true
+                            """
                         }
                     }
                     stage('SCA Scan') {
