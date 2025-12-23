@@ -106,7 +106,7 @@
         - { src: 'Scanner.Dockerfile', dest: 'Scanner.Dockerfile' }
 
     - name: Build custom Security Scanner (Multi-Arch native)
-      command: docker build -t fintech-scanner:latest -f Scanner.Dockerfile .
+      command: docker build --no-cache -t fintech-scanner:latest -f Scanner.Dockerfile .
       args:
         chdir: /opt/fintech-showcase
 
