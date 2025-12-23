@@ -96,13 +96,16 @@
         state: directory
         mode: '0755'
 
-    - name: Copy docker-compose stack
+    - name: Copy deployment artifacts
       copy:
-        src: docker-compose.stack.yml
-        dest: /opt/fintech-showcase/docker-compose.yml
+        src: "{{ item.src }}"
+        dest: "/opt/fintech-showcase/{{ item.dest }}"
+      loop:
+        - { src: 'docker-compose.stack.yml', dest: 'docker-compose.yml' }
+        - { src: 'Jenkins.Dockerfile', dest: 'Jenkins.Dockerfile' }
 
-    - name: Start the stack
-      command: docker compose up -d
+    - name: Start the stack (with build enforcement)
+      command: docker compose up -d --build
       args:
         chdir: /opt/fintech-showcase
 
