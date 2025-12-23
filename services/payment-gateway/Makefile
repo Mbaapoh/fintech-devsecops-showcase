@@ -14,7 +14,9 @@ build:
 scan:
 	echo "Running SCA for payment-gateway..."
 	mkdir -p odc-reports
-	docker run --rm -v $(PWD):/src \
+	chmod 777 odc-reports
+	docker run --rm --user $(shell id -u):$(shell id -g) \
+		-v $(PWD):/src \
 		-v odc-data:/usr/share/dependency-check/data \
 		-v $(PWD)/odc-reports:/report \
 		owasp/dependency-check:latest \
