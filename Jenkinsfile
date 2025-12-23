@@ -18,7 +18,7 @@ pipeline {
             }
         }
 
-        stage('Parallel Governance Execution') {
+        stage('Trigger Governance Fleet') {
             steps {
                 script {
                     def services = env.SERVICES.split(',')
@@ -29,16 +29,9 @@ pipeline {
                         def serviceName = servicePath.split('/').last()
 
                         fleet[serviceName] = {
-                            node {
-                                stage("Audit: ${serviceName}") {
-                                    // Delegate to the shared library
-                                    fintechPipeline(
-                                        projectName: serviceName,
-                                        sonarKey: "fintech-${serviceName}",
-                                        serviceDir: servicePath
-                                    )
-                                }
-                            }
+                            echo "Triggering Governance Job for: ${serviceName}"
+                            // Trigger the individual Jenkins job we created earlier
+                            build job: serviceName, wait: true, propagate: true
                         }
                     }
                     parallel fleet
