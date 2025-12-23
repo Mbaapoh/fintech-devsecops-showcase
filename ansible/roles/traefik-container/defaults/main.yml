@@ -1,0 +1,31 @@
+---
+# Default variables for Traefik container role
+
+# Domain configuration
+base_domain: "demo.okay.cm"
+ssl_email: "admin@okay.cm"
+
+# Traefik configuration
+traefik_image: "traefik:v2.10"
+traefik_container_name: "traefik"
+traefik_network: "fintech-net"
+
+# Path to store Traefik data on the host
+traefik_data_dir: "/opt/fintech-showcase/traefik"
+
+# SSL configuration
+enable_ssl: true
+use_letsencrypt: true
+# Choose between 'staging' and 'production' for Let's Encrypt
+letsencrypt_endpoint: "https://acme-v02.api.letsencrypt.org/directory"
+# letsencrypt_endpoint: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# Exposed ports
+http_port: 80
+https_port: 443
+dashboard_port: 8080 # Internal, will be proxied via Traefik
+
+# Dashboard basic auth (user:password)
+# Generated using: echo $(htpasswd -nB user) | sed -e s/\\$/\\$\\$/g
+# Default: admin:admin (hashed)
+traefik_dashboard_auth: "admin:$$apr1$$88C94x3N$$Y1xY7qE2T6vJ5P5zO6zP6."

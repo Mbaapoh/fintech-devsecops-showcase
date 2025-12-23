@@ -260,20 +260,21 @@ This will deploy:
 - ✅ Jenkins with pre-configured jobs
 - ✅ Custom security scanner image
 
-### 3. Access Services (via Reverse Proxy)
+### 3. Access Services (Containerized via Traefik)
 
-If you deployed using the Nginx reverse proxy role, services are available at:
+The core infrastructure and services are accessible via Traefik with automated Let's Encrypt SSL:
 
 | Service | URL | Backend Port |
 |---------|-----|--------------|
-| Jenkins | https://jenkins.okay.cm | 8080 |
-| SonarQube | https://sonarqube.okay.cm | 9000 |
-| Payment Gateway | https://payment.okay.cm | 8081 |
-| Ledger API | https://ledger.okay.cm | 8082 |
-| Identity Service | https://identity.okay.cm | 3001 |
-| Customer Web | https://customer.okay.cm | 3000 |
+| Traefik Dashboard | https://traefik.demo.okay.cm | 8080 |
+| Jenkins | https://jenkins.demo.okay.cm | 8080 |
+| SonarQube | https://sonarqube.demo.okay.cm | 9000 |
+| Payment Gateway | https://payment.demo.okay.cm | 8081 |
+| Ledger API | https://ledger.demo.okay.cm | 8082 |
+| Identity Service | https://identity.demo.okay.cm | 3001 |
+| Customer Web | https://customer.demo.okay.cm | 3000 |
 
-*Note: Replace `okay.cm` with your actual domain in `ansible/playbooks/reverse-proxy.yml`.*
+*Note: All services automatically redirect from HTTP to HTTPS.*
 
 ### 4. Local Access (Direct)
 
@@ -642,14 +643,14 @@ See [WORKAROUNDS.md](./WORKAROUNDS.md) for detailed technical explanation.
 fintech-devsecops-showcase/
 ├── ansible/                          # Infrastructure as Code
 │   ├── playbooks/                    # Ansible Playbooks
-│   │   ├── setup-stack.yml           # Main infrastructure deployment
-│   │   └── reverse-proxy.yml        # Nginx/SSL reverse proxy setup
+│   │   ├── setup-full-stack.yml      # Main infrastructure (Traefik + Stack)
+│   │   └── reverse-proxy.yml        # Nginx/SSL (Binary-based alternative)
 │   ├── roles/                        # Ansible Roles
-│   │   ├── nginx-reverse-proxy/      # Nginx configuration role
-│   │   └── ...                       # Other infrastructure roles
+│   │   ├── traefik-container/        # Traefik container-based role
+│   │   └── nginx-reverse-proxy/      # Nginx binary-based role
 │   ├── Jenkins.Dockerfile            # Custom Jenkins image
 │   ├── Scanner.Dockerfile            # Security scanner image
-│   ├── docker-compose.stack.yml      # Docker stack definition
+│   ├── docker-compose.stack.yml      # Docker stack definition (Labels-based)
 │   └── inventory.ini                 # Ansible inventory
 ├── jenkins-shared-library/           # Reusable pipeline logic
 │   ├── vars/

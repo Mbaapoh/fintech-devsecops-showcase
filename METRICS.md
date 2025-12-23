@@ -429,9 +429,13 @@ Expected Impact:
 
 ## 🎨 Metrics Visualization
 
+### Traefik Dashboard Access
+
+**URL**: https://traefik.demo.okay.cm
+
 ### SonarQube Dashboard Access
 
-**URL**: http://localhost:9000
+**URL**: https://sonarqube.demo.okay.cm
 
 **Key Views**:
 1. **Projects Overview** → All 4 services at a glance
@@ -444,7 +448,7 @@ Expected Impact:
 
 ### Jenkins Build Trends
 
-**URL**: http://localhost:8080
+**URL**: https://jenkins.demo.okay.cm
 
 **Key Views**:
 1. **Build History** → Success/failure timeline

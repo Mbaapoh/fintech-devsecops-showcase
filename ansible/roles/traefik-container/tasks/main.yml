@@ -1,0 +1,24 @@
+---
+# Tasks for Traefik container setup
+
+- name: Ensure app directory exists
+  file:
+    path: "{{ traefik_data_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Create acme.json file with restricted permissions
+  copy:
+    content: "{}"
+    dest: "{{ traefik_data_dir }}/acme.json"
+    force: no
+    mode: '0600'
+
+- name: Display Traefik setup info
+  debug:
+    msg: |
+      Traefik environment prepared at {{ traefik_data_dir }}
+      Domain: {{ base_domain }}
+      SSL Email: {{ ssl_email }}
+      
+      Traefik will be started as part of the Docker Compose stack.

@@ -4,7 +4,9 @@
 @Library('fintech-pipeline-library') _
 
 fintechPipeline(
-    projectName: 'Payment Gateway',
+    projectName: 'Payment-Gateway',
     sonarKey: 'fintech-payment-gateway',
-    serviceDir: 'services/payment-gateway'
+    serviceDir: 'services/payment-gateway',
+    subdomain: 'payment',
+    internalPort: '8081'
 )

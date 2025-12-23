@@ -1,0 +1,90 @@
+---
+# Full Stack Deployment with Traefik Reverse Proxy
+# Deploys: Traefik, Jenkins, SonarQube, PostgreSQL
+
+- name: Deploy Fintech DevSecOps Stack with Traefik
+  hosts: all
+  become: yes
+  
+  vars:
+    base_domain: "demo.okay.cm"
+    ssl_email: "admin@okay.cm"
+    traefik_data_dir: "/opt/fintech-showcase/traefik"
+
+  roles:
+    - ../roles/traefik-container
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install essential tools
+      apt:
+        name: 
+          - curl
+          - git
+          - ufw
+        state: present
+
+    - name: Setup UFW firewall - Allow SSH, HTTP, HTTPS
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - 22
+        - 80
+        - 443
+
+    - name: Ensure Docker is installed
+      # Assuming Docker is already installed by the base setup or this can be added
+      debug:
+        msg: "Ensuring Docker is ready..."
+
+    - name: Create app directory
+      file:
+        path: /opt/fintech-showcase
+        state: directory
+        mode: '0755'
+
+    - name: Copy deployment artifacts
+      copy:
+        src: "../{{ item.src }}"
+        dest: "/opt/fintech-showcase/{{ item.dest }}"
+      loop:
+        - { src: 'docker-compose.stack.yml', dest: 'docker-compose.yml' }
+        - { src: 'Jenkins.Dockerfile', dest: 'Jenkins.Dockerfile' }
+        - { src: 'Scanner.Dockerfile', dest: 'Scanner.Dockerfile' }
+
+    - name: Build custom Security Scanner
+      command: docker build -t fintech-scanner:latest -f Scanner.Dockerfile .
+      args:
+        chdir: /opt/fintech-showcase
+
+    - name: Start the stack with Traefik
+      command: docker compose up -d --build --remove-orphans
+      args:
+        chdir: /opt/fintech-showcase
+
+  post_tasks:
+    - name: Display access URLs
+      debug:
+        msg: |
+          =================================================================
+          Fintech Stack Deployment Complete!
+          =================================================================
+          
+          Access your services at:
+          - Jenkins:     https://jenkins.{{ base_domain }}
+          - SonarQube:   https://sonarqube.{{ base_domain }}
+          - Traefik:     https://traefik.{{ base_domain }} (admin:admin)
+          
+          Microservices (once deployed via Jenkins):
+          - Payment:     https://payment.{{ base_domain }}
+          - Ledger:      https://ledger.{{ base_domain }}
+          - Identity:    https://identity.{{ base_domain }}
+          - Customer:    https://customer.{{ base_domain }}
+          
+          =================================================================

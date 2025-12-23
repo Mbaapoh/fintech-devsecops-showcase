@@ -11,6 +11,8 @@
 ### **Enterprise-Grade DevSecOps Pipeline**
 A fully functional, production-ready CI/CD pipeline demonstrating security-first microservices deployment with:
 - **4 Polyglot Microservices** (Java, Go, Node.js, React)
+- **Containerized Infrastructure** (Traefik, Jenkins, SonarQube, PostgreSQL)
+- **Automated SSL/TLS** (Let's Encrypt via Traefik)
 - **Comprehensive Security Scanning** (Secrets, SCA, SAST)
 - **Automated Quality Gates**
 - **Compliance Evidence Generation**

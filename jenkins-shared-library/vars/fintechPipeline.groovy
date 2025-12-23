@@ -8,7 +8,7 @@ def call(Map pipelineConfig = [:]) {
 
         environment {
             // Use withCredentials in stages for better resilience in simulation envs
-            SONAR_HOST_URL = 'http://65.21.108.94:9000'
+            SONAR_HOST_URL = 'https://sonarqube.demo.okay.cm'
             PROJECT_NAME = "${pipelineConfig.projectName ?: 'Generic-Service'}"
             SONAR_KEY = "${pipelineConfig.sonarKey ?: env.JOB_NAME}"
             SERVICE_DIR = "${pipelineConfig.serviceDir ?: '.'}"
@@ -130,7 +130,40 @@ def call(Map pipelineConfig = [:]) {
                 when { branch 'main' }
                 steps {
                     echo "Packaging ${env.PROJECT_NAME} for production..."
-                    sh 'make build'
+                    dir(env.SERVICE_DIR) {
+                        sh 'make build'
+                    }
+                }
+            }
+
+            stage('Deploy') {
+                when { branch 'main' }
+                steps {
+                    script {
+                        echo "Deploying ${env.PROJECT_NAME} to production via Traefik..."
+                        def subdomain = pipelineConfig.subdomain ?: env.PROJECT_NAME.split('-')[0]
+                        def port = pipelineConfig.internalPort ?: "8080"
+                        def image = "fintech/${env.PROJECT_NAME.toLowerCase()}:latest"
+                        def baseDomain = pipelineConfig.baseDomain ?: "demo.okay.cm"
+                        
+                        // Stop old container if exists
+                        sh "docker stop ${env.PROJECT_NAME.toLowerCase()} || true"
+                        sh "docker rm ${env.PROJECT_NAME.toLowerCase()} || true"
+                        
+                        // Run with Traefik labels
+                        sh """
+                            docker run -d --restart always \
+                                --name ${env.PROJECT_NAME.toLowerCase()} \
+                                --network fintech-net \
+                                --label "traefik.enable=true" \
+                                --label "traefik.http.routers.${env.PROJECT_NAME.toLowerCase()}.rule=Host(`${subdomain}.${baseDomain}`)" \
+                                --label "traefik.http.routers.${env.PROJECT_NAME.toLowerCase()}.entrypoints=websecure" \
+                                --label "traefik.http.routers.${env.PROJECT_NAME.toLowerCase()}.tls.certresolver=myresolver" \
+                                --label "traefik.http.services.${env.PROJECT_NAME.toLowerCase()}.loadbalancer.server.port=${port}" \
+                                ${image}
+                        """
+                        echo "Deployment successful: https://${subdomain}.${baseDomain}"
+                    }
                 }
             }
         }

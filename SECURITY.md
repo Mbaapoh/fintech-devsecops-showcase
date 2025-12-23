@@ -239,9 +239,10 @@ FROM node:latest
 ### Network Security
 
 **Isolation**:
-- Jenkins runs in isolated Docker network
 - SonarQube requires authentication
-- Services communicate via localhost only (no external exposure)
+- Services communicate via internal Docker networks (`fintech-net`)
+- **Traefik Reverse Proxy** handles all external traffic with automated SSL termination.
+- No direct exposure of backend services to the host interfaces (ports 8081, 8082, etc. are not mapped to localhost).
 
 **Firewall Rules** (if deploying to cloud):
 ```bash
