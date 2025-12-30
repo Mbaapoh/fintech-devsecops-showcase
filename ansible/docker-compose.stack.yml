@@ -6,6 +6,7 @@ services:
     environment:
       - DOCKER_API_VERSION=1.47
     command:
+      - "--log.level=DEBUG"
       - "--api.insecure=false"
       - "--api.dashboard=true"
       - "--providers.docker=true"
@@ -14,7 +15,7 @@ services:
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
       - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=admin@okay.cm"
+      - "--certificatesresolvers.myresolver.acme.email=zonelvis@okay.cm"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
@@ -94,6 +95,7 @@ services:
     user: root
     environment:
       - JAVA_OPTS=-Djenkins.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true
+      - JENKINS_OPTS=--prefix=/
     networks:
       - fintech-net
     labels:
@@ -102,6 +104,131 @@ services:
       - "traefik.http.routers.jenkins.entrypoints=websecure"
       - "traefik.http.routers.jenkins.tls.certresolver=myresolver"
       - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+      # Middleware to force Jenkins to recognize HTTPS and correct Host
+      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.X-Forwarded-Port=443"
+      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.X-Forwarded-Host=jenkins.demo.okay.cm"
+      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.Host=jenkins.demo.okay.cm"
+      - "traefik.http.routers.jenkins.middlewares=jenkins-https"
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    environment:
+      - N8N_HOST=n8n.demo.okay.cm
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://n8n.demo.okay.cm/
+      - GENERIC_TIMEZONE=Europe/Berlin
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`n8n.demo.okay.cm`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=myresolver"
+      - "traefik.http.routers.n8n.tls.certresolver=myresolver"
+      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+
+  infisical-db:
+    image: postgres:16-alpine
+    container_name: infisical_db
+    restart: always
+    environment:
+      - POSTGRES_USER=infisical
+      - POSTGRES_PASSWORD=infisical
+      - POSTGRES_DB=infisical
+    volumes:
+      - infisical_db_data:/var/lib/postgresql/data
+    networks:
+      - fintech-net
+
+  infisical-redis:
+    image: redis:7-alpine
+    container_name: infisical_redis
+    restart: always
+    networks:
+      - fintech-net
+
+  infisical:
+    image: infisical/infisical:latest
+    container_name: infisical
+    restart: always
+    depends_on:
+      - infisical-db
+      - infisical-redis
+    environment:
+      - NODE_ENV=production
+      - ENCRYPTION_KEY=9261f1ea0de5228abc5119848bae348f
+      - AUTH_SECRET=6APGgXWULrzPKGG7T/GZTtq6SIWbyDFk3GAUO5M3kIU=
+      - DB_CONNECTION_URI=postgresql://infisical:infisical@infisical-db:5432/infisical
+      - REDIS_URL=redis://infisical-redis:6379
+      - SITE_URL=https://infisical.demo.okay.cm
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.infisical.rule=Host(`infisical.demo.okay.cm`)"
+      - "traefik.http.routers.infisical.entrypoints=websecure"
+      - "traefik.http.routers.infisical.tls.certresolver=myresolver"
+      - "traefik.http.services.infisical.loadbalancer.server.port=8080"
+
+  portainer:
+    image: portainer/portainer-ce:2.21.3
+    container_name: portainer
+    restart: always
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.demo.okay.cm`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=myresolver"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+  wordpress-db:
+    image: mariadb:11.4
+    container_name: wordpress_db
+    restart: always
+    environment:
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress_password
+      - MYSQL_RANDOM_ROOT_PASSWORD=1
+    volumes:
+      - wp_db_data:/var/lib/mysql
+    networks:
+      - fintech-net
+
+  wordpress:
+    image: wordpress:6-apache
+    container_name: wordpress
+    restart: always
+    depends_on:
+      - wordpress-db
+    environment:
+      - WORDPRESS_DB_HOST=wordpress-db
+      - WORDPRESS_DB_USER=wordpress
+      - WORDPRESS_DB_PASSWORD=wordpress_password
+      - WORDPRESS_DB_NAME=wordpress
+    volumes:
+      - wp_data:/var/www/html
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress.rule=Host(`wordpress.demo.okay.cm`)"
+      - "traefik.http.routers.wordpress.entrypoints=websecure"
+      - "traefik.http.routers.wordpress.tls.certresolver=myresolver"
+      - "traefik.http.services.wordpress.loadbalancer.server.port=80"
 
 volumes:
   sonar_data:
@@ -110,6 +237,11 @@ volumes:
   postgresql:
   jenkins_home:
   odc-data:
+  n8n_data:
+  infisical_db_data:
+  portainer_data:
+  wp_data:
+  wp_db_data:
 
 networks:
   fintech-net:
