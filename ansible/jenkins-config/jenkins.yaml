@@ -1,0 +1,46 @@
+jenkins:
+  systemMessage: "Fintech Showcase Jenkins (JCasC Managed)"
+  numExecutors: 6
+  slaveAgentPort: 50000
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+tool:
+  git:
+    installations:
+      - name: "git"
+        home: "/usr/bin/git"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "microcks-service-account"
+              description: "Microcks Admin Account"
+              secret: "${MICROCKS_SERVICE_ACCOUNT_SECRET}"
+
+jobs:
+  - file: "/var/jenkins_home/jobs.groovy"
+
+unclassified:
+  location:
+    adminAddress: "jenkins@demo.okay.cm"
+    url: "https://jenkins.demo.okay.cm"
+  microcksGlobalConfiguration:
+    microcksInstallations:
+      # Updated for Microcks Plugin v0.6.0
+      - microcksDisplayName: "microcks-demo"
+        microcksApiURL: "https://microcks.demo.okay.cm/api"
+        microcksCredentialsId: "microcks-service-account"
+        disableSSLValidation: true

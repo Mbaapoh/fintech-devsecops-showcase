@@ -1,20 +1,21 @@
 ---
-# Full Stack Deployment with Traefik Reverse Proxy
-# Deploys: Traefik, Jenkins, SonarQube, PostgreSQL
-
 - name: Deploy Fintech DevSecOps Stack with Traefik
   hosts: all
   become: yes
-  
+
   vars:
     base_domain: "demo.okay.cm"
     ssl_email: "admin@okay.cm"
+    app_dir: "/opt/fintech-showcase"
     traefik_data_dir: "/opt/fintech-showcase/traefik"
 
   roles:
     - ../roles/traefik-container
 
   tasks:
+
+    # ─── System ───────────────────────────────────────────────────────────────
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -22,51 +23,173 @@
 
     - name: Install essential tools
       apt:
-        name: 
+        name:
           - curl
           - git
           - ufw
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
         state: present
 
-    - name: Setup UFW firewall - Allow SSH, HTTP, HTTPS
+    # ─── Docker ───────────────────────────────────────────────────────────────
+
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install Docker if missing
+      when: docker_check.rc != 0
+      block:
+        - name: Add Docker GPG key
+          shell: |
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+            gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+        - name: Add Docker repository
+          shell: |
+            echo "deb [arch=$(dpkg --print-architecture) \
+            signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] \
+            https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | \
+            tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+        - name: Install Docker Engine
+          apt:
+            name:
+              - docker-ce
+              - docker-ce-cli
+              - containerd.io
+              - docker-compose-plugin
+            update_cache: yes
+            state: present
+
+        - name: Start and enable Docker
+          systemd:
+            name: docker
+            state: started
+            enabled: yes
+
+    # ─── Firewall ─────────────────────────────────────────────────────────────
+
+    - name: Allow SSH before enabling UFW (prevent lockout)
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow HTTP and HTTPS
       ufw:
         rule: allow
         port: "{{ item }}"
         proto: tcp
       loop:
-        - 22
         - 80
         - 443
 
-    - name: Ensure Docker is installed
-      # Assuming Docker is already installed by the base setup or this can be added
-      debug:
-        msg: "Ensuring Docker is ready..."
+    # - name: Enable UFW
+    #   ufw:
+    #     state: enabled
+    #     policy: deny
+    #     direction: incoming
 
-    - name: Create app directory
+    # ─── App Directory ────────────────────────────────────────────────────────
+
+    - name: Create app directory structure
       file:
-        path: /opt/fintech-showcase
+        path: "{{ item }}"
         state: directory
         mode: '0755'
-
-    - name: Copy deployment artifacts
-      copy:
-        src: "../{{ item.src }}"
-        dest: "/opt/fintech-showcase/{{ item.dest }}"
       loop:
-        - { src: 'docker-compose.stack.yml', dest: 'docker-compose.yml' }
-        - { src: 'Jenkins.Dockerfile', dest: 'Jenkins.Dockerfile' }
-        - { src: 'Scanner.Dockerfile', dest: 'Scanner.Dockerfile' }
+        - "{{ app_dir }}"
+        - "{{ app_dir }}/jenkins-config"
+        - "{{ app_dir }}/microcks-config"
 
-    - name: Build custom Security Scanner
-      command: docker build -t fintech-scanner:latest -f Scanner.Dockerfile .
-      args:
-        chdir: /opt/fintech-showcase
+    # ─── Artifacts ────────────────────────────────────────────────────────────
 
-    - name: Start the stack with Traefik
+    - name: Copy Docker Compose file
+      copy:
+        src: "../docker-compose.stack.yml"
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Copy Dockerfiles
+      copy:
+        src: "../{{ item }}"
+        dest: "{{ app_dir }}/{{ item }}"
+        mode: '0644'
+      loop:
+        - Jenkins.Dockerfile
+        - Scanner.Dockerfile
+
+    - name: Copy jenkins-config directory
+      copy:
+        src: "../jenkins-config/"
+        dest: "{{ app_dir }}/jenkins-config/"
+        mode: '0644'
+
+    - name: Copy microcks-config directory
+      copy:
+        src: "../microcks-config/"
+        dest: "{{ app_dir }}/microcks-config/"
+        mode: '0644'
+
+    - name: Generate .env file from template (Vaulted)
+      template:
+        src: "../templates/.env.j2"
+        dest: "{{ app_dir }}/.env"
+        # ✅ Only root can read secrets
+        mode: '0600'
+        owner: root
+        group: root
+
+    # ─── Build & Deploy ───────────────────────────────────────────────────────
+
+    - name: Start the stack (builds all images including scanner)
       command: docker compose up -d --build --remove-orphans
       args:
-        chdir: /opt/fintech-showcase
+        chdir: "{{ app_dir }}"
+      # ✅ Remove separate scanner build — compose --build handles everything
+
+    # ─── Health Checks ────────────────────────────────────────────────────────
+
+    - name: Wait for Jenkins to be healthy
+      uri:
+        url: "https://jenkins.{{ base_domain }}/login"
+        validate_certs: yes
+        status_code: 200
+      register: jenkins_health
+      until: jenkins_health.status == 200
+      retries: 24        # 24 × 15s = 6 minutes
+      delay: 15
+      ignore_errors: yes
+
+    - name: Wait for SonarQube to be healthy
+      uri:
+        url: "https://sonarqube.{{ base_domain }}/api/system/status"
+        validate_certs: yes
+        status_code: 200
+      register: sonar_health
+      until: sonar_health.status == 200
+      retries: 24
+      delay: 15
+      ignore_errors: yes
+
+    - name: Check container status
+      command: docker compose ps
+      args:
+        chdir: "{{ app_dir }}"
+      register: compose_status
+      changed_when: false
+
+    - name: Show container status
+      debug:
+        var: compose_status.stdout_lines
+
+  # ─── Summary ──────────────────────────────────────────────────────────────
 
   post_tasks:
     - name: Display access URLs
@@ -75,16 +198,19 @@
           =================================================================
           Fintech Stack Deployment Complete!
           =================================================================
-          
+
+          Jenkins health:   {{ 'UP' if jenkins_health.status == 200 else 'STARTING - check logs' }}
+          SonarQube health: {{ 'UP' if sonar_health.status == 200 else 'STARTING - check logs' }}
+
           Access your services at:
-          - Jenkins:     https://jenkins.{{ base_domain }}
-          - SonarQube:   https://sonarqube.{{ base_domain }}
-          - Traefik:     https://traefik.{{ base_domain }} (admin:admin)
-          
+          - Jenkins:   https://jenkins.{{ base_domain }}
+          - SonarQube: https://sonarqube.{{ base_domain }}
+          - Traefik:   https://traefik.{{ base_domain }}
+
           Microservices (once deployed via Jenkins):
-          - Payment:     https://payment.{{ base_domain }}
-          - Ledger:      https://ledger.{{ base_domain }}
-          - Identity:    https://identity.{{ base_domain }}
-          - Customer:    https://customer.{{ base_domain }}
-          
+          - Payment:   https://payment.{{ base_domain }}
+          - Ledger:    https://ledger.{{ base_domain }}
+          - Identity:  https://identity.{{ base_domain }}
+          - Customer:  https://customer.{{ base_domain }}
+
           =================================================================

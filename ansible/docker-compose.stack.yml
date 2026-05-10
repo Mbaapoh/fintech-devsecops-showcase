@@ -34,7 +34,7 @@ services:
       - "traefik.http.routers.traefik_dash.entrypoints=websecure"
       - "traefik.http.routers.traefik_dash.tls.certresolver=myresolver"
       - "traefik.http.routers.traefik_dash.middlewares=auth"
-      - "traefik.http.middlewares.auth.basicauth.users=admin:$$apr1$$88C94x3N$$Y1xY7qE2T6vJ5P5zO6zP6."
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_BASIC_AUTH}"
 
   sonarqube:
     image: sonarqube:community
@@ -46,7 +46,7 @@ services:
     environment:
       - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonar
       - SONAR_JDBC_USERNAME=sonar
-      - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_JDBC_PASSWORD=${SONAR_DB_PASSWORD}
     volumes:
       - sonar_data:/opt/sonarqube/data
       - sonar_extensions:/opt/sonarqube/extensions
@@ -72,7 +72,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=sonar
-      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_PASSWORD=${SONAR_DB_PASSWORD}
     volumes:
       - postgresql:/var/lib/postgresql/data
     networks:
@@ -88,14 +88,17 @@ services:
       - "8080"
     ports:
       - "50000:50000"
+    user: root
+    environment:
+      - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD}
+      - MICROCKS_SERVICE_ACCOUNT_SECRET=${MICROCKS_SERVICE_ACCOUNT_SECRET}
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false -Djava.awt.headless=true
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/jenkins.yaml
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker
-    user: root
-    environment:
-      - JAVA_OPTS=-Djenkins.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true
-      - JENKINS_OPTS=--prefix=/
+      - ./jenkins-config/jenkins.yaml:/var/jenkins_home/casc_configs/jenkins.yaml:ro
     networks:
       - fintech-net
     labels:
@@ -104,12 +107,6 @@ services:
       - "traefik.http.routers.jenkins.entrypoints=websecure"
       - "traefik.http.routers.jenkins.tls.certresolver=myresolver"
       - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
-      # Middleware to force Jenkins to recognize HTTPS and correct Host
-      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.X-Forwarded-Proto=https"
-      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.X-Forwarded-Port=443"
-      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.X-Forwarded-Host=jenkins.demo.okay.cm"
-      - "traefik.http.middlewares.jenkins-https.headers.customrequestheaders.Host=jenkins.demo.okay.cm"
-      - "traefik.http.routers.jenkins.middlewares=jenkins-https"
 
   n8n:
     image: n8nio/n8n:latest
@@ -140,7 +137,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=infisical
-      - POSTGRES_PASSWORD=infisical
+      - POSTGRES_PASSWORD=${INFISICAL_DB_PASSWORD}
       - POSTGRES_DB=infisical
     volumes:
       - infisical_db_data:/var/lib/postgresql/data
@@ -163,9 +160,9 @@ services:
       - infisical-redis
     environment:
       - NODE_ENV=production
-      - ENCRYPTION_KEY=9261f1ea0de5228abc5119848bae348f
-      - AUTH_SECRET=6APGgXWULrzPKGG7T/GZTtq6SIWbyDFk3GAUO5M3kIU=
-      - DB_CONNECTION_URI=postgresql://infisical:infisical@infisical-db:5432/infisical
+      - ENCRYPTION_KEY=${INFISICAL_ENCRYPTION_KEY}
+      - AUTH_SECRET=${INFISICAL_AUTH_SECRET}
+      - DB_CONNECTION_URI=postgresql://infisical:${INFISICAL_DB_PASSWORD}@infisical-db:5432/infisical
       - REDIS_URL=redis://infisical-redis:6379
       - SITE_URL=https://infisical.demo.okay.cm
     networks:
@@ -201,7 +198,7 @@ services:
     environment:
       - MYSQL_DATABASE=wordpress
       - MYSQL_USER=wordpress
-      - MYSQL_PASSWORD=wordpress_password
+      - MYSQL_PASSWORD=${WP_DB_PASSWORD}
       - MYSQL_RANDOM_ROOT_PASSWORD=1
     volumes:
       - wp_db_data:/var/lib/mysql
@@ -217,7 +214,7 @@ services:
     environment:
       - WORDPRESS_DB_HOST=wordpress-db
       - WORDPRESS_DB_USER=wordpress
-      - WORDPRESS_DB_PASSWORD=wordpress_password
+      - WORDPRESS_DB_PASSWORD=${WP_DB_PASSWORD}
       - WORDPRESS_DB_NAME=wordpress
     volumes:
       - wp_data:/var/www/html
@@ -230,7 +227,118 @@ services:
       - "traefik.http.routers.wordpress.tls.certresolver=myresolver"
       - "traefik.http.services.wordpress.loadbalancer.server.port=80"
 
+  mongodb:
+    image: mongo:7.0
+    container_name: microcks-db
+    restart: unless-stopped
+    volumes:
+      - microcks-mongo-data:/data/db
+    networks:
+      - fintech-net
+
+  microcks:
+    image: quay.io/microcks/microcks-uber:latest
+    container_name: microcks
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      - SPRING_PROFILES_ACTIVE=uber,prod
+      - MONGO_HOST=mongodb
+    volumes:
+      - microcks-data:/data
+      - ../microcks-config/application.properties:/deployments/config/application.properties:ro
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.microcks.rule=Host(`microcks.demo.okay.cm`)"
+      - "traefik.http.routers.microcks.entrypoints=websecure"
+      - "traefik.http.routers.microcks.tls.certresolver=myresolver"
+      - "traefik.http.services.microcks.loadbalancer.server.port=8080"
+  keycloak-db:
+    image: postgres:15
+    container_name: keycloak-postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    networks:
+      - fintech-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.0
+    container_name: keycloak
+    restart: always
+    command: start-dev
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=${KEYCLOAK_DB_PASSWORD}
+      - KC_HOSTNAME=keycloak.demo.okay.cm
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+    depends_on:
+      - keycloak-db
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.demo.okay.cm`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls.certresolver=myresolver"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    restart: always
+    environment:
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      - OAUTH2_PROXY_UPSTREAMS=http://jenkins:8080
+      - OAUTH2_PROXY_COOKIE_SECRET=${OAUTH2_PROXY_COOKIE_SECRET}
+      - OAUTH2_PROXY_CLIENT_ID=jenkins
+      - OAUTH2_PROXY_CLIENT_SECRET=${OAUTH2_PROXY_CLIENT_SECRET}
+      - OAUTH2_PROXY_PROVIDER=keycloak-oidc
+      - OAUTH2_PROXY_OIDC_ISSUER_URL=https://keycloak.demo.okay.cm/realms/master
+    networks:
+      - fintech-net
+
+  pma-db:
+    image: mariadb:11.2
+    container_name: pma-mariadb
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${PMA_DB_ROOT_PASSWORD}
+    volumes:
+      - pma_db_data:/var/lib/mysql
+    networks:
+      - fintech-net
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: always
+    depends_on:
+      - pma-db
+    environment:
+      - PMA_HOST=pma-db
+    networks:
+      - fintech-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.demo.okay.cm`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=myresolver"
+      - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
+
 volumes:
+  pma_db_data:
+  keycloak_db_data:
   sonar_data:
   sonar_extensions:
   sonar_logs:
@@ -242,6 +350,8 @@ volumes:
   portainer_data:
   wp_data:
   wp_db_data:
+  microcks-mongo-data:
+  microcks-data:
 
 networks:
   fintech-net:
